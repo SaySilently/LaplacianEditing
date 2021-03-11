@@ -72,8 +72,11 @@ public:
             ndc_vertices.push_back(meshes[0].vertices[i]);
             ndc_vertices[i].Position.x = PosL.x;
             ndc_vertices[i].Position.y = PosL.y;
-            ndc_vertices[i].Position.z = PosL.z;
+            ndc_vertices[i].Position.z = PosL.z;   //change positions to normal device coordinates
         }
+        
+        // Verify whether this model has many vertices that share the same position.
+        // The answer is true for the model I used.
         for(unsigned int i = 0; i < meshes[0].vertices.size(); ++i){
             glm::vec3 aPos = meshes[0].vertices[i].Position;
             for(unsigned int j = 0; j < meshes[0].vertices.size(); ++j){
@@ -95,6 +98,8 @@ public:
          
          
         }
+        
+        // This for loop is used to select vertices inside the input circle.
         for(unsigned int i = 0; i < ndc_vertices.size(); ++i){
             float testx = ndc_vertices[i].Position.x;
             float testy = ndc_vertices[i].Position.y;
@@ -103,6 +108,8 @@ public:
                  roi.push_back(i);
             }
         }
+        
+        // Add different color to show three groups of vertices.
         for(unsigned int i = 0; i < roi.size(); ++i){
             unsigned int index= roi[i];
             meshes[0].vertices[index].Color.x = current_color.x;
@@ -148,25 +155,36 @@ public:
             ndc_vertices.push_back(meshes[0].vertices[i]);
             ndc_vertices[i].Position.x = PosL.x;
             ndc_vertices[i].Position.y = PosL.y;
-            ndc_vertices[i].Position.z = PosL.z;
+            ndc_vertices[i].Position.z = PosL.z;  //change positions to normal device coordinates
         }
         
         vector<vector<unsigned int> > adjacent_points;
         bool connection_states[meshes[0].vertices.size()][meshes[0].vertices.size()];
         for(unsigned int i = 0; i < meshes[0].vertices.size(); ++i){
             for(unsigned int j = 0; j < meshes[0].vertices.size(); ++j){
-                connection_states[i][j] = false;
+                connection_states[i][j] = false;    
             }
         }
         adjacent_points.resize(meshes[0].vertices.size());
         
+        
+        // Regarding on this model has many vertices that share the same positions,
+        // So I want to merge them to reduce the number of vertices.
         for(unsigned int i = 0; i < meshes[0].indices.size() - 2; i = i + 3){
+            
+            // One time is a triangle face
             unsigned int index0 = meshes[0].indices[i];
             unsigned int index1 = meshes[0].indices[i+1];
             unsigned int index2 = meshes[0].indices[i+2];
             
+            
+            
+            //First initialize this triangle face has no repeated coordinates.
             bool repeated_index = false;
             bool repeated_another_index = false;
+            
+            // adjacent_points restores previous topological relation
+            // It restores nothing for the first time in this loop
             for(unsigned int i = 0; i < adjacent_points[index0].size(); ++i){
                 if(adjacent_points[index0][i] == index1){
                     repeated_index = true;
@@ -175,6 +193,8 @@ public:
                     repeated_another_index = true;
                 }
             }
+            
+            // It adds indices if there is no repeated index.
             if(!repeated_index){
                 adjacent_points[index0].push_back(index1);
             }
@@ -182,6 +202,9 @@ public:
                 adjacent_points[index0].push_back(index2);
             }
             
+            
+            // Code above is for the first vertex named "index0" in this triangle face.
+            // Below I change the object to index1 and index2.
             repeated_index = repeated_another_index = false;
             for(unsigned int i = 0; i < adjacent_points[index1].size(); ++i){
                 if(adjacent_points[index1][i] == index0){
@@ -198,7 +221,7 @@ public:
                  adjacent_points[index1].push_back(index2);
             }
             
-            
+            // For index2
             repeated_index = repeated_another_index = false;
             for(unsigned int i = 0; i < adjacent_points[index2].size(); ++i){
                 if(adjacent_points[index2][i] == index0){
@@ -222,15 +245,24 @@ public:
                 unsigned int index0 = i;
                 unsigned int index1 = adjacent_points[i][j];
                 connection_states[index0][index1] = true;
-                connection_states[index1][index0] = true;
+                connection_states[index1][index0] = true;   //Build topological relation
 
             }
         }
         
-        
+        //Now begin laplacian deformation
+        // L = I - D-1A.  
+        // L is one type of laplacian matrix that I use.  
+        // I is identity matrix
+        // D is diagonal matrix， D-1 is the inverse matrix of D.
+        // A is adjacency Matrix, if vertex_i connects vertex_j, a_ij = 1, otherwise, a_ij = 0.
+        // DL = D - A      Mutiply D for easy computation
+        // For DL_matrix
+        // if i == j, DL_matrix(i, j) = d_i, d_i is the number of vertices that vertex_i connects.
+        // if vertex_i connects vertex_j, DL_matrix(i, j) = -1
+        // if vertex_i dose not connect vertex_j, DL_matrix(i, j) = 0
         Eigen::MatrixXf DL_matrix = Eigen::MatrixXf(meshes[0].vertices.size(), meshes[0].vertices.size());
-        // L = I - D-1A
-        // DL = D - A
+        
         for(unsigned int i = 0; i < meshes[0].vertices.size(); ++i){
             for(unsigned int j = 0; j < meshes[0].vertices.size(); ++j){
                 if(i == j){
@@ -245,6 +277,8 @@ public:
             }
         }
         
+        
+        
         Eigen::VectorXf vertices_x(meshes[0].vertices.size());
         Eigen::VectorXf vertices_y(meshes[0].vertices.size());
         Eigen::VectorXf vertices_z(meshes[0].vertices.size());
@@ -256,12 +290,14 @@ public:
             vertices_z[i] = ndc_vertices[i].Position.z;
         }
         
+        // Compute laplacian coordinates
         Eigen::VectorXf B_x, B_y, B_z;
         B_x = DL_matrix * vertices_x;
         B_y = DL_matrix * vertices_y;
         B_z = DL_matrix * vertices_z;
         
         
+        // Collect anchor vertices according to color
         vector<unsigned int> anchors;
         for(unsigned int i = 0; i < ndc_vertices.size(); ++i){
             if((ndc_vertices[i].Color.x == 0.7f) || (ndc_vertices[i].Color.x == 0.2f)){
@@ -269,6 +305,8 @@ public:
             }
         }
         
+        
+        // Build DLs_matrix by adding anchors
         Eigen::MatrixXf DLs_matrix = Eigen::MatrixXf(meshes[0].vertices.size() + anchors.size(), meshes[0].vertices.size() + anchors.size());
         for(unsigned int i = 0; i < meshes[0].vertices.size(); ++i){
             for(unsigned int j = 0; j < meshes[0].vertices.size(); ++j){
@@ -301,6 +339,7 @@ public:
             }
         }
         
+        // Add anchor vertices to B
         B_x.conservativeResize(meshes[0].vertices.size() + anchors.size());
         B_y.conservativeResize(meshes[0].vertices.size() + anchors.size());
         B_z.conservativeResize(meshes[0].vertices.size() + anchors.size());
@@ -312,6 +351,9 @@ public:
             B_z[i + meshes[0].vertices.size()] = ndc_vertices[anchors[i]].Position.z;
             
         }
+        
+        // Multiply a transpose matrix to make the left as a square matrix 
+        // This square has a inverse matrix according to that paper : Laplacian Mesh Processiing
         
         Eigen::MatrixXf DLs_transpose = DLs_matrix.transpose();
         Eigen::MatrixXf DLs_transpose_DLs = DLs_transpose * DLs_matrix;
