@@ -59,11 +59,11 @@
 
 ![image](https://github.com/SaySilently/LaplacianEditing/blob/main/page30.png)
 
-
+![image](https://github.com/SaySilently/LaplacianEditing/blob/main/page31.png)
 
 ![image](https://github.com/SaySilently/LaplacianEditing/blob/main/page32.png)
 
-![image](https://github.com/SaySilently/LaplacianEditing/blob/main/page33.png)
+
 
 
 
