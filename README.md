@@ -13,7 +13,7 @@
 
 ![image](https://github.com/SaySilently/LaplacianEditing/blob/main/page7.png)
 
-![image](https://github.com/SaySilently/LaplacianEditing/blob/main/page8.png)
+
 
 ![image](https://github.com/SaySilently/LaplacianEditing/blob/main/page9.png)
 
